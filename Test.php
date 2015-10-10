@@ -16,8 +16,23 @@ function __autoload($class) {
     }
 }
 
-$db = new Database();
-$collection = $db->get(new User());
+//$db = new Database();
+//$collection = $db->get(new User());
+
+$messageCol = new Collection(new Message());
+
+var_dump($messageCol->filter('message', 'Dit is een test bericht!')->filter('user', 5)->get());
+
+
+$message = new Message();
+$message->id = 6;
+$message->message = "Dit is een test bericht!!!";
+$message->user = 6;
+$message->time = time();
+
+$messageCol->save($message);
+
+die();
 
 //$collection->addField('password');
 //

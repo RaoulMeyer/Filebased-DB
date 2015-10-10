@@ -11,6 +11,7 @@ class Collection {
     private $entity;
     private $fields;
     private $index;
+    private $autoincrement;
 
     private $filters = array();
     private $cache = array();
@@ -26,12 +27,15 @@ class Collection {
 
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
+        $this->autoincrement = $meta[2];
     }
 
     private function generateCollection(Entity $entity) {
         $this->createEntityDirs();
 
         $entityFields = get_object_vars($entity);
+
+        $this->autoincrement = 1;
 
         foreach ($entityFields as $field => $value) {
             $this->fields[] = $field;
@@ -77,11 +81,11 @@ class Collection {
     private function getPrimaryIndexCollection($entityClass) {
         $item = new $entityClass;
 
-        if (!$this->fileExists('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]])) {
+        if (!$this->fileExists('./data/collections/' . $this->entity->getCollectionName() . '/' . ($this->filters[$this->fields[0]]))) {
             return null;
         }
 
-        $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]]));
+        $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . ($this->filters[$this->fields[0]])));
 
         foreach ($itemData as $key => $field) {
             $item->{trim($this->fields[$key])} = $field;
@@ -95,10 +99,10 @@ class Collection {
     private function getFilterCollection($entityClass) {
         $filteredKeys = array();
         foreach ($this->filters as $field => $value) {
-            if (!$this->fileExists('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $value)) {
+            if (!$this->fileExists('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value))) {
                 continue;
             }
-            $indexData = explode(";", $this->openFile('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $value));
+            $indexData = explode(";", $this->openFile('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value)));
 
             if (empty($filteredKeys)) {
                 $filteredKeys = $indexData;
@@ -130,6 +134,11 @@ class Collection {
     }
 
     public function save(Entity $entity) {
+        $update = !empty($entity->id);
+        if($this->autoincrement !== -1 && property_exists($entity, 'id') && !$update) {
+            $entity->id = $this->autoincrement;
+            $this->autoincrement++;
+        }
         $data = array();
 
         foreach($this->fields as $field) {
@@ -140,6 +149,9 @@ class Collection {
 
         $this->saveFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $entity->{$this->fields[0]}, $rawData);
 
+        if($update) {
+            $this->cleanupIndex($entity);
+        }
         $this->saveIndex($entity);
     }
 
@@ -172,7 +184,7 @@ class Collection {
             }
         }
 
-        $metaData = implode(';', $this->fields) . "\n" . implode(';', $this->index);
+        $metaData = implode(';', $this->fields) . "\n" . implode(';', $this->index) . "\n" . $this->autoincrement;
         $this->saveFile('./data/meta/' . $this->entity->getCollectionName(), $metaData);
     }
 
@@ -184,12 +196,12 @@ class Collection {
             if(empty($index)) {
                 continue;
             }
-            if($this->fileExists('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index)) {
+            if($this->fileExists('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index))) {
                 $data = ";" . $entity->{$this->fields[0]};
-                $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index, $data, FILE_APPEND);
+                $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index), $data, FILE_APPEND);
             } else {
                 $data = $entity->{$this->fields[0]};
-                $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index, $data);
+                $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index), $data);
             }
         }
     }
@@ -225,5 +237,41 @@ class Collection {
         mkdir('./data/index/' . $this->entity->getCollectionName());
     }
 
+    public function disableAutoincrement() {
+        $this->autoincrement = -1;
+    }
+
+    public function setAutomincrement($value = 1) {
+        $this->autoincrement = $value;
+    }
+
+    public function __destruct() {
+        $this->saveMeta();
+    }
+
+    private function cleanupIndex(Entity $entity) {
+        foreach($this->index as $index) {
+            if(empty($index)) {
+                continue;
+            }
+            if($this->fileExists('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index))) {
+                $data = explode(';', $this->openFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index)));
+
+                print_r($data);
+
+                $data = array_filter(array_diff($data, array($entity->{$this->fields[0]})));
+
+                if(count($data) === 0) {
+                    $this->removeFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index));
+                } else {
+                    $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index), implode(';', $data));
+                }
+            }
+        }
+    }
+
+    private function removeFile($path) {
+        unlink($path);
+    }
 
 }
