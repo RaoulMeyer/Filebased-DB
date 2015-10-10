@@ -19,7 +19,7 @@ class Collection {
         $this->entity = $entity;
 
         if(!$this->fileExists('./data/meta/' . $entity->getCollectionName())) {
-            throw new Exception();
+            $this->generateCollection($entity);
         }
 
         $meta = explode("\n", $this->openFile('./data/meta/' . $entity->getCollectionName()));
@@ -28,53 +28,79 @@ class Collection {
         $this->index = explode(";", $meta[1]);
     }
 
+    private function generateCollection(Entity $entity) {
+        $this->createEntityDirs();
+
+        $entityFields = get_object_vars($entity);
+
+        foreach ($entityFields as $field => $value) {
+            $this->fields[] = $field;
+            $this->index[] = $field;
+            $this->createIndexDir($field);
+        }
+
+        $this->saveMeta();
+    }
+
     public function get() {
         $entityClass = get_class($this->entity);
         if(empty($this->filters)) {
-            $data = array();
-            $files = scandir('./data/collections/' . $this->entity->getCollectionName());
-
-            foreach($files as $file) {
-                if($file === '.' || $file === '..') {
-                    continue;
-                }
-                $item = new $entityClass;
-                $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
-                foreach ($itemData as $key => $field) {
-                    $item->{trim($this->fields[$key])} = $field;
-                }
-                $data[] = $item;
-            }
-
-            return $data;
+            return $this->getFullCollection($entityClass);
         }
 
         if(!empty($this->filters[$this->fields[0]])) {
-            $item = new $entityClass;
+            return $this->getPrimaryIndexCollection($entityClass);
+        }
 
-            if(!$this->fileExists('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]])) {
-                return null;
+        return $this->getFilterCollection($entityClass);
+    }
+
+    private function getFullCollection($entityClass) {
+        $data = array();
+        $files = scandir('./data/collections/' . $this->entity->getCollectionName());
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
             }
-
-            $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]]));
-
+            $item = new $entityClass;
+            $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
             foreach ($itemData as $key => $field) {
                 $item->{trim($this->fields[$key])} = $field;
             }
-
-            $this->filters = array();
-
-            return $item;
+            $data[] = $item;
         }
 
+        return $data;
+    }
+
+    private function getPrimaryIndexCollection($entityClass) {
+        $item = new $entityClass;
+
+        if (!$this->fileExists('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]])) {
+            return null;
+        }
+
+        $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $this->filters[$this->fields[0]]));
+
+        foreach ($itemData as $key => $field) {
+            $item->{trim($this->fields[$key])} = $field;
+        }
+
+        $this->filters = array();
+
+        return $item;
+    }
+
+    private function getFilterCollection($entityClass) {
         $filteredKeys = array();
-        foreach($this->filters as $field => $value) {
-            if(!$this->fileExists('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $value)) {
+        foreach ($this->filters as $field => $value) {
+            if (!$this->fileExists('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $value)) {
                 continue;
             }
             $indexData = explode(";", $this->openFile('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $value));
 
-            if(empty($filteredKeys)) {
+            if (empty($filteredKeys)) {
                 $filteredKeys = $indexData;
             } else {
                 $filteredKeys = array_intersect($filteredKeys, $indexData);
@@ -83,7 +109,7 @@ class Collection {
 
         $data = array();
 
-        foreach($filteredKeys as $file) {
+        foreach ($filteredKeys as $file) {
             $item = new $entityClass;
             $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
             foreach ($itemData as $key => $field) {
@@ -140,6 +166,11 @@ class Collection {
                 unset($this->fields[$key]);
             }
         }
+        foreach ($this->index as $key => $field) {
+            if(empty($field)) {
+                unset($this->index[$key]);
+            }
+        }
 
         $metaData = implode(';', $this->fields) . "\n" . implode(';', $this->index);
         $this->saveFile('./data/meta/' . $this->entity->getCollectionName(), $metaData);
@@ -154,8 +185,8 @@ class Collection {
                 continue;
             }
             if($this->fileExists('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index)) {
-                $data = "||" . $entity->{$this->fields[0]};
-                $this->saveFile('./data/index/' . $index . '/' . $entity->$index, $data, FILE_APPEND);
+                $data = ";" . $entity->{$this->fields[0]};
+                $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index, $data, FILE_APPEND);
             } else {
                 $data = $entity->{$this->fields[0]};
                 $this->saveFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . $entity->$index, $data);
@@ -188,4 +219,11 @@ class Collection {
         }
         return file_exists($path);
     }
+
+    private function createEntityDirs() {
+        mkdir('./data/collections/' . $this->entity->getCollectionName());
+        mkdir('./data/index/' . $this->entity->getCollectionName());
+    }
+
+
 }

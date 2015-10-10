@@ -6,6 +6,8 @@
  * Date: 10/10/2015
  * Time: 17:16
  */
-interface Entity {
-    public function getCollectionName();
+class Entity {
+    public function getCollectionName() {
+        return strtolower(get_class($this));
+    }
 }
