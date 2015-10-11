@@ -100,7 +100,7 @@ class Collection {
         $filteredKeys = array();
         foreach ($this->filters as $field => $value) {
             if (!$this->fileExists('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value))) {
-                continue;
+                return array();
             }
             $indexData = explode(";", $this->openFile('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value)));
 
@@ -241,7 +241,7 @@ class Collection {
         $this->autoincrement = -1;
     }
 
-    public function setAutomincrement($value = 1) {
+    public function setAutoincrement($value = 1) {
         $this->autoincrement = $value;
     }
 
@@ -257,8 +257,6 @@ class Collection {
             if($this->fileExists('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index))) {
                 $data = explode(';', $this->openFile('./data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index)));
 
-                print_r($data);
-
                 $data = array_filter(array_diff($data, array($entity->{$this->fields[0]})));
 
                 if(count($data) === 0) {
@@ -270,8 +268,18 @@ class Collection {
         }
     }
 
+    private function cleanupData(Entity $entity) {
+        $this->removeFile('./data/collections/' . $entity->getCollectionName() . '/' . $entity->{$this->fields[0]});
+    }
+
     private function removeFile($path) {
         unlink($path);
     }
+
+    public function remove($entity) {
+        $this->cleanupIndex($entity);
+        $this->cleanupData($entity);
+    }
+
 
 }
