@@ -14,4 +14,8 @@ class Entity {
     public function save() {
         Database::get($this)->save($this);
     }
+
+    public function remove() {
+        Database::get($this)->remove($this);
+    }
 }

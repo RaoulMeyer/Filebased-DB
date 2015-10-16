@@ -17,6 +17,8 @@ class Collection {
     private $joins = array();
 
     private $cache = array();
+    private $limit = 0;
+    private $offset = 0;
 
     public function __construct(Entity $entity) {
         $this->entity = $entity;
@@ -65,10 +67,20 @@ class Collection {
         $data = array();
         $files = scandir('./data/collections/' . $this->entity->getCollectionName());
 
+        $itemNumber = 0;
         foreach ($files as $file) {
             if ($file === '.' || $file === '..') {
                 continue;
             }
+
+            $itemNumber++;
+            if($itemNumber <= $this->offset) {
+                continue;
+            }
+            if($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
+                break;
+            }
+
             $item = new $entityClass;
             $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
             foreach ($itemData as $key => $field) {
@@ -119,8 +131,17 @@ class Collection {
         }
 
         $data = array();
+        $itemNumber = 0;
 
         foreach ($filteredKeys as $file) {
+            $itemNumber++;
+            if($itemNumber <= $this->offset) {
+                continue;
+            }
+            if($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
+                break;
+            }
+
             $item = new $entityClass;
             $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
             foreach ($itemData as $key => $field) {
@@ -327,4 +348,13 @@ class Collection {
         $this->createEntityDirs();
     }
 
+    public function limit($limit) {
+        $this->limit = $limit;
+        return $this;
+    }
+
+    public function offset($offset) {
+        $this->offset = $offset;
+        return $this;
+    }
 }
