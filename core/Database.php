@@ -8,10 +8,21 @@
  */
 class Database {
 
-    public function get($entity) {
+    private static $collections = array();
+
+    /**
+     * @param $entity
+     * @return Collection
+     */
+    public static function get($entity) {
         if(!$entity instanceof Entity) {
             return null;
         }
-        return new Collection($entity);
+
+        if(!array_key_exists(get_class($entity), Database::$collections)) {
+            Database::$collections[get_class($entity)] = new Collection($entity);
+        }
+
+        return Database::$collections[get_class($entity)];
     }
 }

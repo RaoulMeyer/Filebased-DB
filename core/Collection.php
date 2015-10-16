@@ -14,6 +14,8 @@ class Collection {
     private $autoincrement;
 
     private $filters = array();
+    private $joins = array();
+
     private $cache = array();
 
     public function __construct(Entity $entity) {
@@ -72,6 +74,9 @@ class Collection {
             foreach ($itemData as $key => $field) {
                 $item->{trim($this->fields[$key])} = $field;
             }
+
+            $item = $this->joinItem($item);
+
             $data[] = $item;
         }
 
@@ -91,9 +96,11 @@ class Collection {
             $item->{trim($this->fields[$key])} = $field;
         }
 
+        $item = $this->joinItem($item);
+
         $this->filters = array();
 
-        return $item;
+        return array($item);
     }
 
     private function getFilterCollection($entityClass) {
@@ -119,6 +126,9 @@ class Collection {
             foreach ($itemData as $key => $field) {
                 $item->{trim($this->fields[$key])} = $field;
             }
+
+            $item = $this->joinItem($item);
+
             $data[] = $item;
         }
 
@@ -129,6 +139,16 @@ class Collection {
 
     public function filter($field, $value) {
         $this->filters[$field] = $value;
+
+        return $this;
+    }
+
+    public function join($collection, $leftField, $rightField) {
+        $this->joins[] = array(
+                            'collection' => $collection,
+                            'left' => $leftField,
+                            'right' => $rightField
+                        );
 
         return $this;
     }
@@ -222,7 +242,7 @@ class Collection {
 
     private function saveFile($path, $data, $options = null) {
         file_put_contents($path, $data, $options);
-        $this->cache = array();
+        unset($this->cache[$path]);
     }
 
     private function fileExists($path) {
@@ -281,5 +301,30 @@ class Collection {
         $this->cleanupData($entity);
     }
 
+    public function getCollectionName() {
+        return $this->entity->getCollectionName();
+    }
+
+    private function joinItem($item) {
+        if (!empty($this->joins)) {
+            foreach ($this->joins as $join) {
+                $joinItems = $join['collection']->filter($join['right'], $item->{$join['left']})->get();
+                if (count($joinItems) > 1) {
+                    $item->{$join['collection']->getCollectionName()} = $joinItems;
+                } else {
+                    $item->{$join['collection']->getCollectionName()} = array();
+                }
+            }
+            return $item;
+        }
+        return $item;
+    }
+
+    public function truncate() {
+        $this->removeFile('./data/collections/' . $this->entity->getCollectionName());
+        $this->removeFile('./data/index/' . $this->entity->getCollectionName());
+
+        $this->createEntityDirs();
+    }
 
 }

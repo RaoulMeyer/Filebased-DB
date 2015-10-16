@@ -10,4 +10,8 @@ class Entity {
     public function getCollectionName() {
         return strtolower(get_class($this));
     }
+
+    public function save() {
+        Database::get($this)->save($this);
+    }
 }
