@@ -19,6 +19,8 @@ class Collection {
     private $cache = array();
     private $limit = 0;
     private $offset = 0;
+    private $sort;
+    private $sortDirection = true;
 
     public function __construct(Entity $entity) {
         $this->entity = $entity;
@@ -92,6 +94,22 @@ class Collection {
             $data[] = $item;
         }
 
+        if(!empty($this->sort)) {
+            $sort = $this->sort;
+            $direction = $this->sortDirection;
+            usort($data,
+                function($a, $b) use (&$sort, &$direction) {
+                    if($direction) {
+                        return strcmp($a->$sort, $b->$sort);
+                    } else {
+                        return strcmp($b->$sort, $a->$sort);
+                    }
+                }
+            );
+        }
+
+        $this->cleanupQuery();
+
         return $data;
     }
 
@@ -110,7 +128,7 @@ class Collection {
 
         $item = $this->joinItem($item);
 
-        $this->filters = array();
+        $this->cleanupQuery();
 
         return array($item);
     }
@@ -153,7 +171,21 @@ class Collection {
             $data[] = $item;
         }
 
-        $this->filters = array();
+        if(!empty($this->sort)) {
+            $sort = $this->sort;
+            $direction = $this->sortDirection;
+            usort($data,
+                function($a, $b) use (&$sort, &$direction) {
+                    if($direction) {
+                        return strcmp($a->$sort, $b->$sort);
+                    } else {
+                        return strcmp($b->$sort, $a->$sort);
+                    }
+                }
+            );
+        }
+
+        $this->cleanupQuery();
 
         return $data;
     }
@@ -356,5 +388,21 @@ class Collection {
     public function offset($offset) {
         $this->offset = $offset;
         return $this;
+    }
+
+    public function sort($field, $direction = 'ASC') {
+        $this->sort = $field;
+        $this->sortDirection = $direction === 'ASC';
+
+        return $this;
+    }
+
+    private function cleanupQuery() {
+        $this->filters = array();
+        $this->joins = array();
+        $this->limit = 0;
+        $this->offset = 0;
+        $this->sort = null;
+        $this->sortDirection = true;
     }
 }
