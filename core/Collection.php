@@ -22,6 +22,8 @@ class Collection {
     private $sort;
     private $sortDirection = true;
 
+    private $collectionRemoved = false;
+
     public function __construct(Entity $entity) {
         $this->entity = $entity;
 
@@ -319,7 +321,9 @@ class Collection {
     }
 
     public function __destruct() {
-        $this->saveMeta();
+        if(!$this->collectionRemoved) {
+            $this->saveMeta();
+        }
     }
 
     private function cleanupIndex(Entity $entity) {
@@ -374,10 +378,11 @@ class Collection {
     }
 
     public function truncate() {
-        $this->removeFile('./data/collections/' . $this->entity->getCollectionName());
-        $this->removeFile('./data/index/' . $this->entity->getCollectionName());
+        $items = $this->getFullCollection(get_class($this->entity));
 
-        $this->createEntityDirs();
+        foreach($items as $item) {
+            $this->remove($item);
+        }
     }
 
     public function limit($limit) {
@@ -404,5 +409,23 @@ class Collection {
         $this->offset = 0;
         $this->sort = null;
         $this->sortDirection = true;
+    }
+
+    public function clearCache() {
+        $this->cache = array();
+    }
+
+    public function deleteCollection() {
+        $this->truncate();
+        rmdir('./data/collections/' . $this->entity->getCollectionName());
+
+        foreach ($this->index as $field) {
+            rmdir('./data/index/' . $this->entity->getCollectionName() . '/' . $field);
+        }
+        rmdir('./data/index/' . $this->entity->getCollectionName());
+
+        $this->removeFile('./data/meta/' . $this->entity->getCollectionName());
+
+        $this->collectionRemoved = true;
     }
 }
