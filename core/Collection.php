@@ -17,6 +17,7 @@ class Collection {
     private $joins = array();
 
     private $cache = array();
+    private $cacheLimit = 100000;
     private $limit = 0;
     private $offset = 0;
     private $sort;
@@ -36,6 +37,9 @@ class Collection {
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
         $this->autoincrement = $meta[2];
+        if(!empty(Settings::getSetting('db_cache_limit'))) {
+            $this->cacheLimit = Settings::getSetting('db_cache_limit');
+        }
     }
 
     private function generateCollection(Entity $entity) {
@@ -317,6 +321,7 @@ class Collection {
         } else {
             $data = file_get_contents($path);
             $this->cache[$path] = $data;
+            $this->checkCache();
             return $data;
         }
     }
@@ -453,5 +458,18 @@ class Collection {
         $this->removeFile('./data/meta/' . $this->entity->getCollectionName());
 
         $this->collectionRemoved = true;
+    }
+
+    private function checkCache() {
+        if(count($this->cache) > $this->cacheLimit && count($this->cache) % 10 === 0) {
+            $removeCount = count($this->cache) - $this->cacheLimit;
+            foreach ($this->cache as $key => $item) {
+                unset($this->cache[$key]);
+                $removeCount--;
+                if($removeCount <= 0) {
+                    return;
+                }
+            }
+        }
     }
 }
