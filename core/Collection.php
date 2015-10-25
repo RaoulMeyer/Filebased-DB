@@ -18,6 +18,9 @@ class Collection {
 
     private $cache = array();
     private $cacheLimit = 100000;
+    private $itemCache = array();
+    private $itemCacheLimit = 10000;
+
     private $limit = 0;
     private $offset = 0;
     private $sort;
@@ -37,8 +40,11 @@ class Collection {
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
         $this->autoincrement = $meta[2];
-        if(!empty(Settings::getSetting('db_cache_limit'))) {
+        if(Settings::getSetting('db_cache_limit') !== null) {
             $this->cacheLimit = Settings::getSetting('db_cache_limit');
+        }
+        if(Settings::getSetting('db_item_cache_limit') !== null) {
+            $this->itemCacheLimit = Settings::getSetting('db_item_cache_limit');
         }
     }
 
@@ -89,11 +95,7 @@ class Collection {
                 break;
             }
 
-            $item = new $entityClass;
-            $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
-            foreach ($itemData as $key => $field) {
-                $item->{trim($this->fields[$key])} = $field;
-            }
+            $item = $this->getItemById($file, $entityClass);
 
             $item = $this->joinItem($item);
 
@@ -120,17 +122,11 @@ class Collection {
     }
 
     private function getPrimaryIndexCollection($entityClass) {
-        $item = new $entityClass;
-
         if (!$this->fileExists('./data/collections/' . $this->entity->getCollectionName() . '/' . ($this->filters[$this->fields[0]]))) {
             return null;
         }
 
-        $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . ($this->filters[$this->fields[0]])));
-
-        foreach ($itemData as $key => $field) {
-            $item->{trim($this->fields[$key])} = $field;
-        }
+        $item = $this->getItemById($this->filters[$this->fields[0]], $entityClass);
 
         $item = $this->joinItem($item);
 
@@ -166,11 +162,7 @@ class Collection {
                 break;
             }
 
-            $item = new $entityClass;
-            $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $file));
-            foreach ($itemData as $key => $field) {
-                $item->{trim($this->fields[$key])} = $field;
-            }
+            $item = $this->getItemById($file, $entityClass);
 
             $item = $this->joinItem($item);
 
@@ -472,4 +464,33 @@ class Collection {
             }
         }
     }
+
+    private function getItemById($id, $entityClass) {
+        if(!empty($this->itemCache[$id])) {
+            return $this->itemCache[$id];
+        } else {
+            $item = new $entityClass;
+            $itemData = explode("||", $this->openFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $id));
+            foreach ($itemData as $key => $field) {
+                $item->{trim($this->fields[$key])} = $field;
+            }
+            $this->itemCache[$id] = $item;
+            $this->checkItemCache();
+            return $item;
+        }
+    }
+
+    private function checkItemCache() {
+        if(count($this->itemCache) > $this->itemCacheLimit && count($this->itemCache) % 10 === 0) {
+            $removeCount = count($this->itemCache) - $this->itemCacheLimit;
+            foreach ($this->itemCache as $key => $item) {
+                unset($this->itemCache[$key]);
+                $removeCount--;
+                if($removeCount <= 0) {
+                    return;
+                }
+            }
+        }
+    }
+
 }
