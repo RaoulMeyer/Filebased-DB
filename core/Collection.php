@@ -247,6 +247,32 @@ class Collection {
         }
     }
 
+    public function removeIndex($field) {
+        if(!in_array($field, $this->index)) {
+            return;
+        }
+        $this->removeIndexData($field);
+        foreach($this->index as $key => $index) {
+            if($index === $field) {
+                unset($this->index[$key]);
+            }
+        }
+        $this->saveMeta();
+    }
+
+    private function removeIndexData($field) {
+        $files = scandir('./data/index/' . $this->entity->getCollectionName() . '/' . $field);
+
+        foreach($files as $file) {
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $this->removeFile('./data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $file);
+        }
+
+        rmdir('./data/index/' . $this->entity->getCollectionName());
+    }
+
     private function saveMeta() {
         foreach ($this->fields as $key => $field) {
             if(empty($field)) {
