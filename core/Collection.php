@@ -24,7 +24,7 @@ class Collection {
     private $limit = 0;
     private $offset = 0;
     private $sort;
-    private $sortDirection = true;
+    private $sortDirectionAscending = true;
 
     private $collectionRemoved = false;
 
@@ -104,7 +104,7 @@ class Collection {
 
         if(!empty($this->sort)) {
             $sort = $this->sort;
-            $direction = $this->sortDirection;
+            $direction = $this->sortDirectionAscending;
             usort($data,
                 function($a, $b) use (&$sort, &$direction) {
                     if($direction) {
@@ -171,7 +171,7 @@ class Collection {
 
         if(!empty($this->sort)) {
             $sort = $this->sort;
-            $direction = $this->sortDirection;
+            $direction = $this->sortDirectionAscending;
             usort($data,
                 function($a, $b) use (&$sort, &$direction) {
                     if($direction) {
@@ -420,7 +420,7 @@ class Collection {
 
     public function sort($field, $direction = 'ASC') {
         $this->sort = $field;
-        $this->sortDirection = $direction === 'ASC';
+        $this->sortDirectionAscending = $direction === 'ASC';
 
         return $this;
     }
@@ -431,7 +431,7 @@ class Collection {
         $this->limit = 0;
         $this->offset = 0;
         $this->sort = null;
-        $this->sortDirection = true;
+        $this->sortDirectionAscending = true;
     }
 
     public function clearCache() {
