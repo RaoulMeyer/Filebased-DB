@@ -11,7 +11,11 @@ class Database {
     private static $collections = array();
 
     /**
-     * @param $entity
+     * Get Collection
+     * Caches collections by Entity
+     *
+     * @param Entity $entity Entity for which to get the Collection
+     *
      * @return Collection
      */
     public static function get($entity) {
