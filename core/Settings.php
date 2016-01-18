@@ -5,7 +5,12 @@ class Settings {
 
     public static function loadSettingsFile() {
         if (empty(self::$file)) {
-            self::$file = file_get_contents('settings.cfg');
+	        if (file_exists('settings.cfg')) {
+		        self::$file = file_get_contents('settings.cfg');
+	        } else {
+		        self::$file = '';
+		        file_put_contents('settings.cfg', '');
+	        }
         }
     }
 

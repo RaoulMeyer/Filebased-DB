@@ -59,6 +59,7 @@ class Collection {
      * @param Entity $entity The Entity for which a new Collection should be generated
      */
     private function generateCollection(Entity $entity) {
+	    $this->createBasicDirs();
         $this->createEntityDirs();
 
         $entityFields = get_object_vars($entity);
@@ -277,10 +278,15 @@ class Collection {
 
         $rawData = implode('||', $data);
 
+	    if ($update) {
+		    $this->cleanupUpdatedIndex($entity, $this->getItemById($entity->id, get_class($entity)));
+	    }
+
         $this->saveFile('./data/collections/' . $this->entity->getCollectionName() . '/' . $entity->{$this->fields[0]}, $rawData);
 
         if($update) {
             $this->cleanupIndex($entity);
+
         }
         $this->saveIndex($entity);
     }
@@ -444,11 +450,29 @@ class Collection {
      * @return bool File existing
      */
     private function fileExists($path) {
-        if(isset($this->cache[$path])) {
+        if (isset($this->cache[$path])) {
             return true;
         }
         return file_exists($path);
     }
+
+	/**
+	 * Create basic directories
+	 */
+	private function createBasicDirs() {
+		if (!is_dir('./data')) {
+			mkdir('./data');
+		}
+		if (!is_dir('./data/collections')) {
+			mkdir('./data/collections');
+		}
+		if (!is_dir('./data/index')) {
+			mkdir('./data/index');
+		}
+		if (!is_dir('./data/meta')) {
+			mkdir('./data/meta');
+		}
+	}
 
     /**
      * Create directories for the Collection
@@ -721,5 +745,27 @@ class Collection {
             }
         }
     }
+
+	private function cleanupUpdatedIndex(Entity $newEntity, Entity $oldEntity)
+	{
+		foreach($this->index as $index) {
+			if(empty($index)) {
+				continue;
+			}
+			if ($oldEntity->$index != $newEntity->$index) {
+				if($this->fileExists('./data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index))) {
+					$data = explode(';', $this->openFile('./data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index)));
+
+					$data = array_filter(array_diff($data, array($oldEntity->{$this->fields[0]})));
+
+					if(count($data) === 0) {
+						$this->removeFile('./data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index));
+					} else {
+						$this->saveFile('./data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index), implode(';', $data));
+					}
+				}
+			}
+		}
+	}
 
 }
