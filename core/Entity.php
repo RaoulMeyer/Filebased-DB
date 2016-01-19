@@ -18,4 +18,12 @@ class Entity {
     public function remove() {
         Database::remove($this);
     }
+
+    public function beforeSave() {}
+
+    public function afterSave() {}
+
+    public function beforeRemove() {}
+
+    public function afterRemove() {}
 }

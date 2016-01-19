@@ -265,6 +265,8 @@ class Collection {
      * @param Entity $entity The Entity which should be saved
      */
     public function save(Entity $entity) {
+        $entity->beforeSave();
+
         $update = !empty($entity->id);
         if($this->autoincrement !== -1 && property_exists($entity, 'id') && !$update) {
             $entity->id = $this->autoincrement;
@@ -289,6 +291,8 @@ class Collection {
 
         }
         $this->saveIndex($entity);
+
+        $entity->afterSave();
     }
 
     /**
@@ -567,8 +571,12 @@ class Collection {
      * @param Entity $entity Entity to be removed
      */
     public function remove($entity) {
+        $entity->beforeRemove();
+
         $this->cleanupIndex($entity);
         $this->cleanupData($entity);
+
+        $entity->afterRemove();
     }
 
 
