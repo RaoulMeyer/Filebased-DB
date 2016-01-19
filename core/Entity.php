@@ -12,10 +12,10 @@ class Entity {
     }
 
     public function save() {
-        Database::get($this)->save($this);
+        Database::save($this);
     }
 
     public function remove() {
-        Database::get($this)->remove($this);
+        Database::remove($this);
     }
 }
