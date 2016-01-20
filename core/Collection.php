@@ -288,9 +288,11 @@ class Collection {
 
         if($update) {
             $this->cleanupIndex($entity);
-
         }
+
         $this->saveIndex($entity);
+
+        $this->itemCache[$entity->id] = $entity;
 
         $entity->afterSave();
     }
@@ -303,6 +305,7 @@ class Collection {
     public function addField($name) {
         $this->fields[] = $name;
         $this->saveMeta();
+        $this->clearCache();
     }
 
     /**
@@ -570,11 +573,17 @@ class Collection {
      *
      * @param Entity $entity Entity to be removed
      */
-    public function remove($entity) {
+    public function remove(Entity $entity) {
         $entity->beforeRemove();
+
+        if (empty($entity->id)) {
+            return;
+        }
 
         $this->cleanupIndex($entity);
         $this->cleanupData($entity);
+
+        unset($this->itemCache[$entity->id]);
 
         $entity->afterRemove();
     }
@@ -621,6 +630,8 @@ class Collection {
         foreach($items as $item) {
             $this->remove($item);
         }
+
+        $this->clearCache();
     }
 
     /**
@@ -679,6 +690,7 @@ class Collection {
      */
     public function clearCache() {
         $this->cache = array();
+        $this->itemCache = array();
     }
 
     /**
@@ -694,6 +706,8 @@ class Collection {
         rmdir('./data/index/' . $this->entity->getCollectionName());
 
         $this->removeFile('./data/meta/' . $this->entity->getCollectionName());
+
+        $this->clearCache();
 
         $this->collectionRemoved = true;
     }
