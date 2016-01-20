@@ -19,6 +19,7 @@ class Collection {
     private $cache = array();
     private $cacheLimit = 100000;
     private $itemCache = array();
+    private $itemCacheEnabled = true;
     private $itemCacheLimit = 10000;
 
     private $limit = 0;
@@ -27,6 +28,12 @@ class Collection {
     private $sortDirectionAscending = true;
 
     private $collectionRemoved = false;
+
+    private $settings = array(
+        'db_cache_limit' => 'cacheLimit',
+        'db_item_cache_enabled' => 'itemCacheEnabled',
+        'db_item_cache_limit' => 'itemCacheLimit'
+    );
 
     /**
      * Load a new Collection
@@ -45,12 +52,8 @@ class Collection {
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
         $this->autoincrement = $meta[2];
-        if(Settings::getSetting('db_cache_limit') !== null) {
-            $this->cacheLimit = Settings::getSetting('db_cache_limit');
-        }
-        if(Settings::getSetting('db_item_cache_limit') !== null) {
-            $this->itemCacheLimit = Settings::getSetting('db_item_cache_limit');
-        }
+
+        $this->loadAllSettings();
     }
 
     /**
@@ -73,6 +76,27 @@ class Collection {
         }
 
         $this->saveMeta();
+    }
+
+    /**
+     * Load all settings from the settings.cfg file
+     */
+    private function loadAllSettings() {
+        foreach ($this->settings as $name => $field) {
+            $this->loadSetting($name, $field);
+        }
+    }
+
+    /**
+     * Load a setting from the settings.cfg file
+     *
+     * @param string $settingName Name of the setting
+     * @param string $field Field of this class to save the setting in
+     */
+    private function loadSetting($settingName, $field) {
+        if (($value = Settings::getSetting($settingName)) !== null) {
+            $this->$field = $value;
+        }
     }
 
     /**
@@ -578,7 +602,7 @@ class Collection {
     public function remove(Entity $entity) {
         $entity->beforeRemove();
 
-        if (empty($entity->id)) {
+        if (empty($entity->{$this->fields[0]})) {
             return;
         }
 
@@ -740,7 +764,7 @@ class Collection {
      * @return Entity The (cached) Entity object
      */
     private function getItemById($id, $entityClass) {
-        if(!empty($this->itemCache[$id])) {
+        if($this->itemCacheEnabled && !empty($this->itemCache[$id])) {
             return $this->itemCache[$id];
         } else {
             $item = new $entityClass;
@@ -748,8 +772,10 @@ class Collection {
             foreach ($itemData as $key => $field) {
                 $item->{trim($this->fields[$key])} = $field;
             }
-            $this->itemCache[$id] = $item;
-            $this->checkItemCache();
+            if ($this->itemCacheEnabled) {
+                $this->itemCache[$id] = $item;
+                $this->checkItemCache();
+            }
             return $item;
         }
     }
