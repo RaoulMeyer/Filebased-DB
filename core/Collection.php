@@ -551,7 +551,9 @@ class Collection {
      * @param Entity $entity Entity for which to clear data
      */
     private function cleanupData(Entity $entity) {
-        $this->removeFile('./data/collections/' . $entity->getCollectionName() . '/' . $entity->{$this->fields[0]});
+        if (!empty($entity->{$this->fields[0]})) {
+            $this->removeFile('./data/collections/' . $entity->getCollectionName() . '/' . $entity->{$this->fields[0]});
+        }
     }
 
     /**
