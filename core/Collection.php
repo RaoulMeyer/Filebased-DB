@@ -13,6 +13,7 @@ class Collection {
     private $index;
     private $autoincrement;
     private $basedir = './';
+    private $autoUpdateEntities = true;
 
     private $filters = array();
     private $joins = array();
@@ -35,6 +36,7 @@ class Collection {
         'db_item_cache_enabled' => 'itemCacheEnabled',
         'db_item_cache_limit' => 'itemCacheLimit',
         'db_basedir' => 'basedir',
+        'db_auto_update_entities' => 'autoUpdateEntities',
     );
 
 
@@ -65,6 +67,10 @@ class Collection {
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
         $this->autoincrement = $meta[2];
+
+        if ($this->autoUpdateEntities) {
+            $this->updateCollection($entity);
+        }
     }
 
     /**
@@ -88,6 +94,33 @@ class Collection {
             $this->fields[] = $field;
             $this->index[] = $field;
             $this->createIndexDir($field);
+        }
+
+        $this->saveMeta();
+    }
+
+    private function updateCollection(Entity $entity) {
+        $entityFields = get_object_vars($entity);
+
+        if (empty($entityFields)) {
+            throw new InvalidArgumentException("Entity object has no fields.");
+        }
+
+        foreach ($entityFields as $field => $value) {
+            if (!in_array($field, $this->fields)) {
+                $this->fields[] = $field;
+                $this->index[] = $field;
+                $this->createIndexDir($field);
+            }
+        }
+
+        $entityFields = array_keys($entityFields);
+
+        foreach ($this->fields as $index => $field) {
+            if (!in_array($field, $entityFields)) {
+                $this->removeIndex($field);
+                unset($this->fields[$index]);
+            }
         }
 
         $this->saveMeta();
@@ -410,7 +443,7 @@ class Collection {
             $this->removeFile('data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . $file);
         }
 
-        rmdir($this->getBasedir() . 'data/index/' . $this->entity->getCollectionName());
+        rmdir($this->getBasedir() . 'data/index/' . $this->entity->getCollectionName() . '/' . $field);
     }
 
     /**
