@@ -42,6 +42,7 @@ class Collection {
      * Load a new Collection
      *
      * @param Entity $entity The Entity for which a Collection should be loaded
+     * @throws \exceptions\MalformedDataException
      */
     public function __construct(Entity $entity) {
         if (empty($entity)) {
@@ -629,6 +630,7 @@ class Collection {
      * Remove an entity from the Collection
      *
      * @param Entity $entity Entity to be removed
+     * @throws \exceptions\MalformedDataException
      */
     public function remove(Entity $entity) {
         $entity->beforeRemove();
@@ -827,6 +829,12 @@ class Collection {
         }
     }
 
+    /**
+     * Clear all unused index files after updating entity values
+     *
+     * @param Entity $newEntity The new entity instance
+     * @param Entity $oldEntity The old entity instance
+     */
 	private function cleanupUpdatedIndex(Entity $newEntity, Entity $oldEntity)
 	{
 		foreach($this->index as $index) {
