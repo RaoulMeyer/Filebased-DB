@@ -34,7 +34,7 @@ class Collection {
         'db_cache_limit' => 'cacheLimit',
         'db_item_cache_enabled' => 'itemCacheEnabled',
         'db_item_cache_limit' => 'itemCacheLimit',
-        'db_base_dir' => 'basedir',
+        'db_basedir' => 'basedir',
     );
 
 
@@ -44,19 +44,26 @@ class Collection {
      * @param Entity $entity The Entity for which a Collection should be loaded
      */
     public function __construct(Entity $entity) {
+        if (empty($entity)) {
+            throw new InvalidArgumentException("Entity must be not null.");
+        }
+
         $this->entity = $entity;
 
-        if(!$this->fileExists('data/meta/' . $entity->getCollectionName())) {
+        $this->loadAllSettings();
+
+        if (!$this->fileExists('data/meta/' . $entity->getCollectionName())) {
             $this->generateCollection($entity);
         }
 
         $meta = explode("\n", $this->openFile('data/meta/' . $entity->getCollectionName()));
 
+        if (count($meta) < 3) {
+            throw new \exceptions\MalformedDataException("Meta data is incomplete.");
+        }
         $this->fields = explode(";", $meta[0]);
         $this->index = explode(";", $meta[1]);
         $this->autoincrement = $meta[2];
-
-        $this->loadAllSettings();
     }
 
     /**
@@ -69,6 +76,10 @@ class Collection {
         $this->createEntityDirs();
 
         $entityFields = get_object_vars($entity);
+
+        if (empty($entityFields)) {
+            throw new InvalidArgumentException("Entity object has no fields.");
+        }
 
         $this->autoincrement = 1;
 
@@ -111,11 +122,11 @@ class Collection {
      */
     public function get() {
         $entityClass = get_class($this->entity);
-        if(empty($this->filters)) {
+        if (empty($this->filters)) {
             return $this->getFullCollection($entityClass);
         }
 
-        if(!empty($this->filters[$this->fields[0]])) {
+        if (!empty($this->filters[$this->fields[0]])) {
             return $this->getPrimaryIndexCollection($entityClass);
         }
 
@@ -140,10 +151,10 @@ class Collection {
             }
 
             $itemNumber++;
-            if($itemNumber <= $this->offset) {
+            if ($itemNumber <= $this->offset) {
                 continue;
             }
-            if($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
+            if ($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
                 break;
             }
 
@@ -158,8 +169,8 @@ class Collection {
             $sort = $this->sort;
             $direction = $this->sortDirectionAscending;
             usort($data,
-                function($a, $b) use (&$sort, &$direction) {
-                    if($direction) {
+                function ($a, $b) use (&$sort, &$direction) {
+                    if ($direction) {
                         return strcmp($a->$sort, $b->$sort);
                     } else {
                         return strcmp($b->$sort, $a->$sort);
@@ -182,7 +193,7 @@ class Collection {
      */
     private function getPrimaryIndexCollection($entityClass) {
         if (!$this->fileExists('data/collections/' . $this->entity->getCollectionName() . '/' . ($this->filters[$this->fields[0]]))) {
-            return null;
+            return array();
         }
 
         $item = $this->getItemById($this->filters[$this->fields[0]], $entityClass);
@@ -221,10 +232,10 @@ class Collection {
 
         foreach ($filteredKeys as $file) {
             $itemNumber++;
-            if($itemNumber <= $this->offset) {
+            if ($itemNumber <= $this->offset) {
                 continue;
             }
-            if($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
+            if ($this->limit !== 0 && $itemNumber > $this->offset + $this->limit) {
                 break;
             }
 
@@ -235,12 +246,12 @@ class Collection {
             $data[] = $item;
         }
 
-        if(!empty($this->sort)) {
+        if (!empty($this->sort)) {
             $sort = $this->sort;
             $direction = $this->sortDirectionAscending;
             usort($data,
-                function($a, $b) use (&$sort, &$direction) {
-                    if($direction) {
+                function ($a, $b) use (&$sort, &$direction) {
+                    if ($direction) {
                         return strcmp($a->$sort, $b->$sort);
                     } else {
                         return strcmp($b->$sort, $a->$sort);
@@ -295,13 +306,13 @@ class Collection {
         $entity->beforeSave();
 
         $update = !empty($entity->id);
-        if($this->autoincrement !== -1 && property_exists($entity, 'id') && !$update) {
+        if ($this->autoincrement !== -1 && property_exists($entity, 'id') && !$update) {
             $entity->id = $this->autoincrement;
             $this->autoincrement++;
         }
         $data = array();
 
-        foreach($this->fields as $field) {
+        foreach ($this->fields as $field) {
             $data[] = $entity->$field;
         }
 
@@ -313,7 +324,7 @@ class Collection {
 
         $this->saveFile('data/collections/' . $this->entity->getCollectionName() . '/' . $entity->{$this->fields[0]}, $rawData);
 
-        if($update) {
+        if ($update) {
             $this->cleanupIndex($entity);
         }
 
@@ -328,47 +339,59 @@ class Collection {
      * Add a field to the config of the Collection
      *
      * @param string $name Field name
+     * @return bool True if the field was added, false if the field already existed.
      */
     public function addField($name) {
+        if (in_array($name, $this->fields)) {
+            return false;
+        }
+
         $this->fields[] = $name;
         $this->saveMeta();
         $this->clearCache();
+        return true;
     }
 
     /**
      * Add an index to a field that already exists
      *
      * @param string $field Existing field name
+     * @return bool True if the index was added, false if the index already existed.
      */
     public function addIndex($field) {
-        if(in_array($field, $this->index)) {
-            return;
+        if (in_array($field, $this->index)) {
+            return false;
         }
         $this->index[] = $field;
         $this->saveMeta();
         $this->createIndexDir($field);
-        foreach($this->get() as $item) {
+        foreach ($this->get() as $item) {
             $this->saveIndex($item, array($field));
         }
+
+        return true;
     }
 
     /**
      * Remove an index from a field that already exists
      *
      * @param string $field Existing field name
+     * @return bool True if the index was removed, false if the index didn't exist.
      */
     public function removeIndex($field) {
-        if(!in_array($field, $this->index)) {
-            return;
+        if (!in_array($field, $this->index)) {
+            return false;
         }
 
         $this->removeIndexData($field);
-        foreach($this->index as $key => $index) {
-            if($index === $field) {
+        foreach ($this->index as $key => $index) {
+            if ($index === $field) {
                 unset($this->index[$key]);
             }
         }
         $this->saveMeta();
+
+        return true;
     }
 
     /**
@@ -379,7 +402,7 @@ class Collection {
     private function removeIndexData($field) {
         $files = scandir($this->getBasedir() . 'data/index/' . $this->entity->getCollectionName() . '/' . $field);
 
-        foreach($files as $file) {
+        foreach ($files as $file) {
             if ($file === '.' || $file === '..') {
                 continue;
             }
@@ -394,12 +417,12 @@ class Collection {
      */
     private function saveMeta() {
         foreach ($this->fields as $key => $field) {
-            if(empty($field)) {
+            if (empty($field)) {
                 unset($this->fields[$key]);
             }
         }
         foreach ($this->index as $key => $field) {
-            if(empty($field)) {
+            if (empty($field)) {
                 unset($this->index[$key]);
             }
         }
@@ -415,10 +438,10 @@ class Collection {
      * @param array $indices An array of index names which should be rebuild. Defaults to all indices.
      */
     private function saveIndex(Entity $entity, $indices = array()) {
-        if(empty($indices)) {
+        if (empty($indices)) {
             $indices = $this->index;
         }
-        foreach($indices as $index) {
+        foreach ($indices as $index) {
             if(empty($index)) {
                 continue;
             }
@@ -451,7 +474,7 @@ class Collection {
      */
     private function openFile($path) {
         $path = $this->getBasedir() . $path;
-        if(isset($this->cache[$path])) {
+        if (isset($this->cache[$path])) {
             return $this->cache[$path];
         } else {
             $data = file_get_contents($path);
@@ -547,7 +570,7 @@ class Collection {
      * Save config on destruct
      */
     public function __destruct() {
-        if(!$this->collectionRemoved) {
+        if (!$this->collectionRemoved) {
             $this->saveMeta();
         }
     }
@@ -558,16 +581,16 @@ class Collection {
      * @param Entity $entity Entity for which to clear index values
      */
     private function cleanupIndex(Entity $entity) {
-        foreach($this->index as $index) {
-            if(empty($index)) {
+        foreach ($this->index as $index) {
+            if (empty($index)) {
                 continue;
             }
-            if($this->fileExists('data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index))) {
+            if ($this->fileExists('data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index))) {
                 $data = explode(';', $this->openFile('data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index)));
 
                 $data = array_filter(array_diff($data, array($entity->{$this->fields[0]})));
 
-                if(count($data) === 0) {
+                if (count($data) === 0) {
                     $this->removeFile('data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index));
                 } else {
                     $this->saveFile('data/index/' . $entity->getCollectionName() . '/' . $index . '/' . md5($entity->$index), implode(';', $data));
@@ -611,7 +634,7 @@ class Collection {
         $entity->beforeRemove();
 
         if (empty($entity->{$this->fields[0]})) {
-            return;
+            throw new \exceptions\MalformedDataException("Empty primary identifier for entity instance.");
         }
 
         $this->cleanupIndex($entity);
@@ -661,7 +684,7 @@ class Collection {
     public function truncate() {
         $items = $this->getFullCollection(get_class($this->entity));
 
-        foreach($items as $item) {
+        foreach ($items as $item) {
             $this->remove($item);
         }
 
@@ -750,12 +773,12 @@ class Collection {
      * Validate cache, clearing all cached items which exceed the max amount of cached items
      */
     private function checkCache() {
-        if(count($this->cache) > $this->cacheLimit && count($this->cache) % 10 === 0) {
+        if (count($this->cache) > $this->cacheLimit && count($this->cache) % 10 === 0) {
             $removeCount = count($this->cache) - $this->cacheLimit;
             foreach ($this->cache as $key => $item) {
                 unset($this->cache[$key]);
                 $removeCount--;
-                if($removeCount <= 0) {
+                if ($removeCount <= 0) {
                     return;
                 }
             }
@@ -772,7 +795,7 @@ class Collection {
      * @return Entity The (cached) Entity object
      */
     private function getItemById($id, $entityClass) {
-        if($this->itemCacheEnabled && !empty($this->itemCache[$id])) {
+        if ($this->itemCacheEnabled && !empty($this->itemCache[$id])) {
             return $this->itemCache[$id];
         } else {
             $item = new $entityClass;
@@ -792,12 +815,12 @@ class Collection {
      * Validate cache, clearing all cached items which exceed the max amount of cached items
      */
     private function checkItemCache() {
-        if(count($this->itemCache) > $this->itemCacheLimit && count($this->itemCache) % 10 === 0) {
+        if (count($this->itemCache) > $this->itemCacheLimit && count($this->itemCache) % 10 === 0) {
             $removeCount = count($this->itemCache) - $this->itemCacheLimit;
             foreach ($this->itemCache as $key => $item) {
                 unset($this->itemCache[$key]);
                 $removeCount--;
-                if($removeCount <= 0) {
+                if ($removeCount <= 0) {
                     return;
                 }
             }
@@ -807,16 +830,16 @@ class Collection {
 	private function cleanupUpdatedIndex(Entity $newEntity, Entity $oldEntity)
 	{
 		foreach($this->index as $index) {
-			if(empty($index)) {
+			if (empty($index)) {
 				continue;
 			}
 			if ($oldEntity->$index != $newEntity->$index) {
-				if($this->fileExists('data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index))) {
+				if ($this->fileExists('data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index))) {
 					$data = explode(';', $this->openFile('./data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index)));
 
 					$data = array_filter(array_diff($data, array($oldEntity->{$this->fields[0]})));
 
-					if(count($data) === 0) {
+					if (count($data) === 0) {
 						$this->removeFile('data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index));
 					} else {
 						$this->saveFile('data/index/' . $oldEntity->getCollectionName() . '/' . $index . '/' . md5($oldEntity->$index), implode(';', $data));
