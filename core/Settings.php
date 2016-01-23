@@ -40,12 +40,13 @@ class Settings {
     public static function getSetting($setting) {
         $name = explode("_", $setting);
         $data = Settings::getPart($name[0]);
-        if (!empty($data[$name[1]])) {
-            return $data[$name[1]];
+        array_shift($name);
+        $key = implode("_", $name);
+        if (!empty($data[$key])) {
+            return $data[$key];
         }
         return null;
     }
-
 }
 
 

@@ -35,7 +35,7 @@ class Collection {
         'db_cache_limit' => 'cacheLimit',
         'db_item_cache_enabled' => 'itemCacheEnabled',
         'db_item_cache_limit' => 'itemCacheLimit',
-        'db_basedir' => 'basedir',
+        'db_base_dir' => 'basedir',
         'db_auto_update_entities' => 'autoUpdateEntities',
     );
 
