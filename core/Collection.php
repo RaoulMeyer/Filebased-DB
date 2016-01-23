@@ -108,9 +108,8 @@ class Collection {
 
         foreach ($entityFields as $field => $value) {
             if (!in_array($field, $this->fields)) {
-                $this->fields[] = $field;
-                $this->index[] = $field;
-                $this->createIndexDir($field);
+                $this->addField($field);
+                $this->addIndex($field);
             }
         }
 
@@ -119,7 +118,7 @@ class Collection {
         foreach ($this->fields as $index => $field) {
             if (!in_array($field, $entityFields)) {
                 $this->removeIndex($field);
-                unset($this->fields[$index]);
+                $this->removeField($field);
             }
         }
 
@@ -380,7 +379,14 @@ class Collection {
             return false;
         }
 
+        $data = $this->getFullCollection(get_class($this->entity));
+
         $this->fields[] = $name;
+
+        foreach ($data as $item) {
+            $this->save($item);
+        }
+
         $this->saveMeta();
         $this->clearCache();
         return true;
@@ -404,6 +410,35 @@ class Collection {
         }
 
         return true;
+    }
+
+    /**
+     * Remove a field from the config of the Collection
+     *
+     * @param string $field Field name
+     */
+    public function removeField($field) {
+        $fieldPosition = -1;
+        foreach ($this->fields as $key => $value) {
+            if ($value == $field) {
+                $fieldPosition = $key;
+            }
+        }
+
+        if ($fieldPosition == -1) {
+            throw new \InvalidArgumentException("Cannot remove non-existent field.");
+        }
+
+        $data = $this->getFullCollection(get_class($this->entity));
+
+        unset($this->fields[$fieldPosition]);
+
+        foreach ($data as $item) {
+            $this->save($item);
+        }
+
+        $this->saveMeta();
+        $this->clearCache();
     }
 
     /**
