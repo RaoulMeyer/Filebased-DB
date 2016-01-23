@@ -26,4 +26,12 @@ class Entity {
     public function beforeRemove() {}
 
     public function afterRemove() {}
+
+    public function beforeAddField($field) {}
+
+    public function afterAddField($field) {}
+
+    public function beforeRemoveField($field) {}
+
+    public function afterRemoveField($field) {}
 }

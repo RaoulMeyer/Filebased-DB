@@ -408,8 +408,11 @@ class Collection {
 
         $this->fields[] = $name;
 
+        /** @var Entity $item */
         foreach ($data as $item) {
+            $item->beforeAddField($name);
             $this->save($item);
+            $item->afterAddField($name);
         }
 
         $this->saveMeta();
@@ -458,8 +461,11 @@ class Collection {
 
         unset($this->fields[$fieldPosition]);
 
+        /** @var Entity $item */
         foreach ($data as $item) {
+            $item->beforeRemoveField($field);
             $this->save($item);
+            $item->afterRemoveField($field);
         }
 
         $this->saveMeta();
