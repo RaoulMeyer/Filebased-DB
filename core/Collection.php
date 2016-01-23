@@ -247,9 +247,11 @@ class Collection {
      */
     private function getFilterCollection($entityClass) {
         $filteredKeys = array();
+        $nonIndexedFilters = array();
         foreach ($this->filters as $field => $value) {
             if (!$this->fileExists('data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value))) {
-                return array();
+                $nonIndexedFilters[$field] = $value;
+                continue;
             }
             $indexData = explode(";", $this->openFile('data/index/' . $this->entity->getCollectionName() . '/' . $field . '/' . md5($value)));
 
@@ -260,10 +262,31 @@ class Collection {
             }
         }
 
+        if (empty($filteredKeys) && !empty($nonIndexedFilters)) {
+            $files = scandir($this->getBasedir() . 'data/collections/' . $this->entity->getCollectionName());
+            foreach ($files as $file) {
+                if ($file === '.' || $file === '..') {
+                    continue;
+                }
+
+                $filteredKeys[] = $file;
+            }
+        }
+
         $data = array();
         $itemNumber = 0;
 
         foreach ($filteredKeys as $file) {
+            if (!empty($nonIndexedFilters)) {
+                $item = $this->getItemById($file, $entityClass);
+
+                foreach ($nonIndexedFilters as $field => $value) {
+                    if ($item->$field != $value) {
+                        continue 2;
+                    }
+                }
+            }
+
             $itemNumber++;
             if ($itemNumber <= $this->offset) {
                 continue;
@@ -272,7 +295,9 @@ class Collection {
                 break;
             }
 
-            $item = $this->getItemById($file, $entityClass);
+            if (empty($item)) {
+                $item = $this->getItemById($file, $entityClass);
+            }
 
             $item = $this->joinItem($item);
 
