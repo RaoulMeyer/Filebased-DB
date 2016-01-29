@@ -586,7 +586,7 @@ class Collection {
 
     /**
      * Save data to a file by path
-     * This method clears the cache for any file saved
+     * This method updates the cache for any file saved
      *
      * @param string $path File path
      * @param string $data Data to be saved to file
@@ -595,9 +595,7 @@ class Collection {
     private function saveFile($path, $data, $options = null) {
         $path = $this->getBasedir() . $path;
         file_put_contents($path, $data, $options);
-        if (isset($this->cache[$path])) {
-            unset($this->cache[$path]);
-        }
+        $this->cache[$path] = $data;
     }
 
     /**
