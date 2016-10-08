@@ -6,15 +6,7 @@
  * Time: 7:10
  */
 
-function __autoload($class) {
-    $paths = array('./', './core/', './entities/');
-    foreach($paths as $path) {
-        if(file_exists($path . $class . '.php')) {
-            include($path . $class . '.php');
-            return;
-        }
-    }
-}
+require('Autoload.php');
 
 // Save any object that extends the Entity class
 
